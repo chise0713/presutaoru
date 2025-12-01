@@ -10,6 +10,9 @@ description = "A linux Pressure Stall Information (PSI) file descriptor wrapper 
 categories = ["os", "os::linux-apis", "os::android-apis"]
 keywords = ["psi", "epoll", "tokio", "linux", "android"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "presutaoru"
 path = "src/lib.rs"

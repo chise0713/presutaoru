@@ -78,6 +78,12 @@ where
 
     /// Receive an event from the thread
     pub fn recv(&self) -> Result<Event<T>> {
+        if self.handle.is_none() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "the epoll thread is not started",
+            ));
+        }
         self.rx.recv().map_err(|_| {
             io::Error::new(
                 io::ErrorKind::BrokenPipe,

@@ -50,6 +50,12 @@ where
 
     /// Receive an event from tasks
     pub async fn recv(&mut self) -> Result<Event<T>> {
+        if self.abort_handles.is_none() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "the tokio tasks is not started",
+            ));
+        }
         self.rx.recv().await.ok_or(io::Error::new(
             io::ErrorKind::BrokenPipe,
             "called a recv on a closed channel",

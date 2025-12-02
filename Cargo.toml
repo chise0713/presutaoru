@@ -1,6 +1,6 @@
 [package]
 name = "presutaoru"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 edition = "2024"
 authors = ["チセ <123655015+chise0713@users.noreply.github.com>"]
 repository = "https://github.com/chise0713/presutaoru"

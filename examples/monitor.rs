@@ -35,7 +35,7 @@ fn main() {
     while let Ok(r) = thread.recv() {
         match r {
             Event::Ready(id) => println!("psi event triggerd on: {:?}", id),
-            Event::Failure(e) => eprintln!("{}", e.to_string()),
+            Event::Failure(e) => eprintln!("{}", e),
         }
     }
 }

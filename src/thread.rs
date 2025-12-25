@@ -2,7 +2,7 @@ use std::{
     hash::Hash,
     io::{self, Result},
     mem::MaybeUninit,
-    os::fd::AsFd,
+    os::fd::AsFd as _,
     sync::{
         Arc,
         mpsc::{self, Receiver, Sender},

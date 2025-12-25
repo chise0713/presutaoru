@@ -34,15 +34,13 @@ mod thread;
 #[cfg(feature = "tokio")]
 mod tokio;
 
-pub use crate::{
-    entry::PsiEntry,
-    fd::{PsiFd, PsiFdBuilder, PsiFdBuilderError, StallType},
-};
-
 #[cfg(feature = "monitor")]
 pub use crate::monitor::{Event, PsiMonitor};
-
 #[cfg(feature = "thread")]
 pub use crate::thread::PsiThread;
 #[cfg(feature = "tokio")]
 pub use crate::tokio::PsiTokioReactor;
+pub use crate::{
+    entry::PsiEntry,
+    fd::{PsiFd, PsiFdBuilder, PsiFdBuilderError, StallType},
+};

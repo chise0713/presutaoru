@@ -69,7 +69,7 @@ where
 {
     fn drop(&mut self) {
         if let Some(h) = self.abort_handles.take() {
-            h.iter().for_each(|h| h.abort())
+            h.iter().for_each(AbortHandle::abort)
         }
     }
 }

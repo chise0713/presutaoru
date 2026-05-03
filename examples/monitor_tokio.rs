@@ -30,8 +30,7 @@ async fn main() {
             .build()
             .unwrap(),
     );
-    let mut job = monitor.into_tokio_reactor().unwrap();
-    job.start().unwrap();
+    let mut job = monitor.into_tokio_reactor().unwrap().start().unwrap();
     while let Ok(r) = job.recv().await {
         match r {
             Event::Ready(id) => println!("psi event triggerd on: {:?}", id),

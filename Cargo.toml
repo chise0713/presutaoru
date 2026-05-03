@@ -31,12 +31,21 @@ required-features = ["thread"]
 name = "monitor_tokio"
 required-features = ["tokio"]
 
+[[example]]
+name = "dynamic_monitor_tokio"
+required-features = ["tokio"]
+
 [dependencies]
 thiserror = "^1.0"
 rustc-hash = "^2.1"
 libc = "^0.2"
 nix = { version = "^0.30", features = ["event"], optional = true }
-tokio = { version = "^1.0", features = ["rt", "net", "sync"], optional = true }
+tokio = { version = "^1.0", features = [
+    "rt",
+    "net",
+    "sync",
+    "time",
+], optional = true }
 
 [dev-dependencies]
-tokio = { version = "^1.0", features = ["rt", "macros"] }
+tokio = { version = "^1.0", features = ["rt", "macros", "time"] }

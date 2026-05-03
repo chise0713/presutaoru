@@ -53,8 +53,7 @@ Or register the file desc to tokio's reactor:
 //! presutaoru = { version = "0.1", features = ["monitor", "tokio"] }
 use presutaoru::tokio::PsiTokioReactor;
 
-let mut job = monitor.into_tokio_reactor().unwrap();
-job.start().unwrap();
+let mut job = monitor.into_tokio_reactor().unwrap().start().unwrap();
 
 while let Ok(r) = job.recv().await {
     match r {
@@ -81,7 +80,7 @@ drop(jobs);   // all fds are closed here
 - `thread`: Enable monitoring using std::thread.
 - `tokio`: Enable monitoring using tokio's reactor.
 
-All features are disabled by default. 
+All features are disabled by default.
 
 `thread` and `tokio` features require `monitor` feature to be enabled.
 

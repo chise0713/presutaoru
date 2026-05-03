@@ -17,6 +17,18 @@ impl PsiEntry {
     const IO: &str = "/proc/pressure/io";
     const IRQ: &str = "/proc/pressure/irq";
     const MEMORY: &str = "/proc/pressure/memory";
+
+    /// Returns the corresponding file name for cgroup-based PSI.
+    /// Note that `Irq` is not supported in cgroups.
+    pub fn cgroup_file_name(&self) -> Option<&'static str> {
+        match self {
+            Self::Cpu => Some("cpu.pressure"),
+            Self::Io => Some("io.pressure"),
+            Self::Memory => Some("memory.pressure"),
+            Self::Irq => None,
+        }
+    }
+
     /// Returns `true` if the PsiEntry exists in the system.
     pub fn exists(&self) -> bool {
         self.as_ref().exists()

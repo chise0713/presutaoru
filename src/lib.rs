@@ -14,6 +14,16 @@
 //!     .build()
 //!     .unwrap();
 //!
+//! // Example for cgroup-based PSI
+//! let cgroup_psi_fd = PsiFdBuilder::default()
+//!     .cgroup("/sys/fs/cgroup/system.slice")
+//!     .entry(PsiEntry::Memory)
+//!     .stall_type(StallType::Full)
+//!     .stall_amount(Duration::from_micros(500))
+//!     .time_window(Duration::from_secs(1))
+//!     .build()
+//!     .unwrap();
+//!
 //! let mut monitor = PsiMonitor::default();
 //! monitor.add_fd("psi_fd", psi_fd);
 //! let mut thread = monitor.into_thread().unwrap();

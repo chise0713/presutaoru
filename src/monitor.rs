@@ -9,7 +9,7 @@ use crate::PsiFd;
 #[cfg(feature = "thread")]
 use crate::thread::PsiThread;
 #[cfg(feature = "tokio")]
-use crate::tokio::PsiTokioReactor;
+use crate::tokio::PsiTokioReactorPending;
 
 /// A monitor for multiple PSI file descriptors.
 /// Which does not implement any polling mechanism itself, but allows
@@ -76,11 +76,11 @@ where
 
     /// Embedding the monitor into tokio's reactor
     #[cfg(feature = "tokio")]
-    pub fn into_tokio_reactor(self) -> Result<PsiTokioReactor<T>>
+    pub fn into_tokio_reactor(self) -> Result<PsiTokioReactorPending<T>>
     where
         T: Clone + Send + Sync,
     {
-        crate::tokio::PsiTokioReactor::new(self.map)
+        crate::tokio::PsiTokioReactorPending::new(self.map)
     }
 
     pub fn into_inner(self) -> FxHashMap<T, PsiFd> {

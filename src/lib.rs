@@ -39,7 +39,7 @@ pub use crate::monitor::{Event, PsiMonitor};
 #[cfg(feature = "thread")]
 pub use crate::thread::PsiThread;
 #[cfg(feature = "tokio")]
-pub use crate::tokio::PsiTokioReactor;
+pub use crate::tokio::{PsiTokioReactorActive, PsiTokioReactorPending};
 pub use crate::{
     entry::PsiEntry,
     fd::{PsiFd, PsiFdBuilder, PsiFdBuilderError, StallType},

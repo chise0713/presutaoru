@@ -37,7 +37,6 @@ impl Display for StallType {
 #[derive(Debug)]
 pub struct PsiFd {
     fd: OwnedFd,
-    #[allow(dead_code)]
     pub(crate) from_builder: bool,
 }
 
@@ -71,13 +70,12 @@ impl From<PsiFd> for OwnedFd {
 }
 
 /// Builder for PsiFd
-#[derive(Default, Clone)]
-pub struct PsiFdBuilder {
-    entry: Option<PsiEntry>,
+#[derive(Default, Clone, Copy)]
+pub struct PsiFdBuilder<'a> {
+    entry: Option<PsiEntry<'a>>,
     stall_type: Option<StallType>,
     stall_amount: Option<Duration>,
     time_window: Option<Duration>,
-    cgroup: Option<PathBuf>,
 }
 
 /// Errors that can occur when building a PsiFd
@@ -96,17 +94,13 @@ pub enum PsiFdBuilderError {
     #[error("stall amount must be less than time window")]
     StallAmountTooLarge,
     #[error("no psi entry found {0}")]
-    NoPsiEntry(PsiEntry),
-    #[error("cgroup psi entry not found at {0:?}")]
-    NoCgroupPsiEntry(PathBuf),
-    #[error("irq is not supported in cgroups")]
-    IrqNotSupportedInCgroup,
+    NoPsiEntry(PathBuf),
     #[error("io error: {0}")]
     Io(#[from] io::Error),
 }
 
-impl PsiFdBuilder {
-    pub fn entry(mut self, entry: PsiEntry) -> Self {
+impl<'a> PsiFdBuilder<'a> {
+    pub fn entry(mut self, entry: PsiEntry<'a>) -> Self {
         self.entry = Some(entry);
         self
     }
@@ -126,15 +120,6 @@ impl PsiFdBuilder {
         self
     }
 
-    /// Sets the cgroup path for the PSI file descriptor.
-    ///
-    /// If set, the builder will look for PSI files in `<path>/<type>.pressure`.
-    /// Note that `Irq` is not supported in cgroups.
-    pub fn cgroup(mut self, path: impl Into<PathBuf>) -> Self {
-        self.cgroup = Some(path.into());
-        self
-    }
-
     /// Build the PsiFd, this will create and write the arguments to the underlying file descriptor
     pub fn build(self) -> Result<PsiFd, PsiFdBuilderError> {
         let entry = self.entry.ok_or(PsiFdBuilderError::NoEntry)?;
@@ -148,23 +133,9 @@ impl PsiFdBuilder {
             return Err(PsiFdBuilderError::StallAmountTooLarge);
         }
 
-        let path = match self.cgroup {
-            Some(ref cgroup_path) => {
-                let file_name = entry
-                    .cgroup_file_name()
-                    .ok_or(PsiFdBuilderError::IrqNotSupportedInCgroup)?;
-                cgroup_path.join(file_name)
-            }
-            None => entry.as_ref().to_path_buf(),
-        };
-
+        let path = entry.path();
         if !path.exists() {
-            return Err(self
-                .cgroup
-                .as_ref()
-                .map_or(PsiFdBuilderError::NoPsiEntry(entry), |_| {
-                    PsiFdBuilderError::NoCgroupPsiEntry(path.clone())
-                }));
+            return Err(PsiFdBuilderError::NoPsiEntry(path.into_owned()));
         }
 
         let mut file = OpenOptions::new()
@@ -185,25 +156,5 @@ impl PsiFdBuilder {
             fd: file.into(),
             from_builder: true,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_irq_not_supported_in_cgroup() {
-        let builder = PsiFdBuilder::default()
-            .entry(PsiEntry::Irq)
-            .cgroup("/tmp")
-            .stall_type(StallType::Some)
-            .stall_amount(Duration::from_micros(1000))
-            .time_window(Duration::from_millis(1000));
-
-        match builder.build() {
-            Err(PsiFdBuilderError::IrqNotSupportedInCgroup) => {}
-            _ => panic!("Should have failed with IrqNotSupportedInCgroup"),
-        }
     }
 }

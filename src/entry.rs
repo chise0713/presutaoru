@@ -1,60 +1,75 @@
 use std::{
+    borrow::Cow,
     fmt::{Debug, Display},
     path::Path,
 };
 
-/// PsiEntry types, it's the path to `/proc/pressure/type` files.
 #[derive(Clone, Copy)]
-pub enum PsiEntry {
+pub enum GlobalEntryType {
     Cpu,
     Io,
     Irq,
     Memory,
 }
 
-impl PsiEntry {
-    const CPU: &str = "/proc/pressure/cpu";
-    const IO: &str = "/proc/pressure/io";
-    const IRQ: &str = "/proc/pressure/irq";
-    const MEMORY: &str = "/proc/pressure/memory";
+#[derive(Clone, Copy)]
+pub enum CgroupEntryType {
+    Cpu,
+    Io,
+    Memory,
+}
 
-    /// Returns the corresponding file name for cgroup-based PSI.
-    /// Note that `Irq` is not supported in cgroups.
-    pub fn cgroup_file_name(&self) -> Option<&'static str> {
+/// PsiEntry types
+#[derive(Clone, Copy)]
+pub enum PsiEntry<'a> {
+    /// path to `/proc/pressure/[type]`
+    Global(GlobalEntryType),
+    /// use the given cgroup directory, path to `[dir]/[type]`
+    Cgroup(CgroupEntryType, &'a Path),
+}
+
+impl<'a> PsiEntry<'a> {
+    const CPU: &'static str = "/proc/pressure/cpu";
+    const IO: &'static str = "/proc/pressure/io";
+    const IRQ: &'static str = "/proc/pressure/irq";
+    const MEMORY: &'static str = "/proc/pressure/memory";
+
+    const CG_CPU: &'static str = "cpu.pressure";
+    const CG_IO: &'static str = "io.pressure";
+    const CG_MEMORY: &'static str = "memory.pressure";
+
+    pub fn path(&self) -> Cow<'_, Path> {
         match self {
-            Self::Cpu => Some("cpu.pressure"),
-            Self::Io => Some("io.pressure"),
-            Self::Memory => Some("memory.pressure"),
-            Self::Irq => None,
+            Self::Global(entry_type) => {
+                let p: &'static str = match entry_type {
+                    GlobalEntryType::Cpu => Self::CPU,
+                    GlobalEntryType::Io => Self::IO,
+                    GlobalEntryType::Irq => Self::IRQ,
+                    GlobalEntryType::Memory => Self::MEMORY,
+                };
+                Cow::Borrowed(Path::new(p))
+            }
+
+            Self::Cgroup(entry_type, base) => {
+                let file = match entry_type {
+                    CgroupEntryType::Cpu => Self::CG_CPU,
+                    CgroupEntryType::Io => Self::CG_IO,
+                    CgroupEntryType::Memory => Self::CG_MEMORY,
+                };
+                Cow::Owned(base.join(file))
+            }
         }
     }
-
-    /// Returns `true` if the PsiEntry exists in the system.
-    pub fn exists(&self) -> bool {
-        self.as_ref().exists()
-    }
 }
 
-impl Display for PsiEntry {
+impl<'a> Display for PsiEntry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_ref().fmt(f)
+        self.path().fmt(f)
     }
 }
 
-impl Debug for PsiEntry {
+impl<'a> Debug for PsiEntry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_ref().fmt(f)
-    }
-}
-
-impl AsRef<Path> for PsiEntry {
-    fn as_ref(&self) -> &Path {
-        let path = match self {
-            Self::Cpu => Self::CPU,
-            Self::Io => Self::IO,
-            Self::Irq => Self::IRQ,
-            Self::Memory => Self::MEMORY,
-        };
-        Path::new(path)
+        self.path().fmt(f)
     }
 }

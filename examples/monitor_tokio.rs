@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use presutaoru::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 enum Id {
     Some1In2_000_000,
@@ -13,7 +14,7 @@ async fn main() {
     monitor.add_fd(
         Id::Some1In2_000_000,
         PsiFdBuilder::default()
-            .entry(PsiEntry::Cpu)
+            .entry(PsiEntry::Global(GlobalEntryType::Cpu))
             .stall_amount(Duration::from_micros(1))
             .stall_type(StallType::Some)
             .time_window(Duration::from_secs(2))
@@ -23,7 +24,7 @@ async fn main() {
     monitor.add_fd(
         Id::Some2In2_000_000,
         PsiFdBuilder::default()
-            .entry(PsiEntry::Cpu)
+            .entry(PsiEntry::Global(GlobalEntryType::Cpu))
             .stall_amount(Duration::from_micros(2))
             .stall_type(StallType::Some)
             .time_window(Duration::from_secs(2))

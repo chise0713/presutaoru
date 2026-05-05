@@ -6,6 +6,7 @@ use std::{
         fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
         unix::fs::OpenOptionsExt as _,
     },
+    path::PathBuf,
     time::Duration,
 };
 
@@ -33,6 +34,7 @@ impl Display for StallType {
 /// ```
 ///
 /// <https://docs.kernel.org/accounting/psi.html>
+#[derive(Debug)]
 pub struct PsiFd {
     fd: OwnedFd,
     pub(crate) from_builder: bool,
@@ -69,8 +71,8 @@ impl From<PsiFd> for OwnedFd {
 
 /// Builder for PsiFd
 #[derive(Default, Clone, Copy)]
-pub struct PsiFdBuilder {
-    entry: Option<PsiEntry>,
+pub struct PsiFdBuilder<'a> {
+    entry: Option<PsiEntry<'a>>,
     stall_type: Option<StallType>,
     stall_amount: Option<Duration>,
     time_window: Option<Duration>,
@@ -92,13 +94,13 @@ pub enum PsiFdBuilderError {
     #[error("stall amount must be less than time window")]
     StallAmountTooLarge,
     #[error("no psi entry found {0}")]
-    NoPsiEntry(PsiEntry),
+    NoPsiEntry(PathBuf),
     #[error("io error: {0}")]
     Io(#[from] io::Error),
 }
 
-impl PsiFdBuilder {
-    pub fn entry(mut self, entry: PsiEntry) -> Self {
+impl<'a> PsiFdBuilder<'a> {
+    pub fn entry(mut self, entry: PsiEntry<'a>) -> Self {
         self.entry = Some(entry);
         self
     }
@@ -130,14 +132,17 @@ impl PsiFdBuilder {
         if stall_amount >= time_window {
             return Err(PsiFdBuilderError::StallAmountTooLarge);
         }
-        if !entry.exists() {
-            return Err(PsiFdBuilderError::NoPsiEntry(entry));
+
+        let path = entry.path();
+        if !path.exists() {
+            return Err(PsiFdBuilderError::NoPsiEntry(path.into_owned()));
         }
+
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .custom_flags(O_NONBLOCK)
-            .open(entry)?;
+            .open(path)?;
         file.write_all(
             format!(
                 "{} {} {}\n",

@@ -13,7 +13,7 @@ fn main() {
     monitor.add_fd(
         Id::Some1In2_000_000,
         PsiFdBuilder::default()
-            .entry(PsiEntry::Cpu)
+            .entry(PsiEntry::Global(GlobalEntryType::Cpu))
             .stall_amount(Duration::from_micros(1))
             .stall_type(StallType::Some)
             .time_window(Duration::from_secs(2))
@@ -23,7 +23,7 @@ fn main() {
     monitor.add_fd(
         Id::Some2In2_000_000,
         PsiFdBuilder::default()
-            .entry(PsiEntry::Cpu)
+            .entry(PsiEntry::Global(GlobalEntryType::Cpu))
             .stall_amount(Duration::from_micros(2))
             .stall_type(StallType::Some)
             .time_window(Duration::from_secs(2))

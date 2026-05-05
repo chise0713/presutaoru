@@ -3,12 +3,24 @@
 //! A linux Pressure Stall Information (PSI) file descriptor wrapper / monitor library for Rust.
 //!
 //! ```no_run
-//! use presutaoru::{PsiFdBuilder, PsiEntry, StallType, PsiMonitor};
-//! use std::time::Duration;
+//! # use std::{time::Duration, path::Path};
+//! # use presutaoru::*;
 //!
 //! let psi_fd = PsiFdBuilder::default()
-//!     .entry(presutaoru::PsiEntry::Cpu)
-//!     .stall_type(presutaoru::StallType::Some)
+//!     .entry(PsiEntry::Global(GlobalEntryType::Cpu))
+//!     .stall_type(StallType::Some)
+//!     .stall_amount(Duration::from_micros(500))
+//!     .time_window(Duration::from_secs(1))
+//!     .build()
+//!     .unwrap();
+//!
+//! // Example for cgroup-based PSI
+//! let cgroup_psi_fd = PsiFdBuilder::default()
+//!     .entry(PsiEntry::Cgroup(
+//!         CgroupEntryType::Cpu,
+//!         Path::new("/sys/fs/cgroup/system.slice"),
+//!     ))
+//!     .stall_type(StallType::Full)
 //!     .stall_amount(Duration::from_micros(500))
 //!     .time_window(Duration::from_secs(1))
 //!     .build()
@@ -41,6 +53,6 @@ pub use crate::thread::PsiThread;
 #[cfg(feature = "tokio")]
 pub use crate::tokio::PsiTokioReactor;
 pub use crate::{
-    entry::PsiEntry,
+    entry::{CgroupEntryType, GlobalEntryType, PsiEntry},
     fd::{PsiFd, PsiFdBuilder, PsiFdBuilderError, StallType},
 };

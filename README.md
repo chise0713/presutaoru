@@ -1,89 +1,29 @@
 # presutaoru (ぷれすたおる)
 
-A linux Pressure Stall Information (PSI) file descriptor monitor library for Rust.
+A linux Pressure Stall Information (PSI) file descriptor wrapper library for Rust.
+
+This crate provides a thin wrapper around Linux PSI file descriptors.
+It does not implement any monitoring abstraction — users are expected
+to integrate with epoll or async runtimes manually.
+
+## Integration
+
+Typical approaches:
+
+- Use `epoll` (via `libc` or crates like `nix`) and watch for `EPOLLPRI`
+- Use async runtimes (e.g. `tokio::io::unix::AsyncFd`) with `Interest::PRIORITY`
+
+A PSI file descriptor is a handle to a registered pressure trigger.
+
+It does not carry data and is not readable in the conventional sense.
+Instead, it becomes observable via `poll` / `epoll`, with `POLLPRI`
+indicating that the PSI threshold has been exceeded.
 
 ## Example
 
-```rust
-use presutaoru::{PsiFdBuilder, PsiEntry, StallType, PsiMonitor};
-use std::time::Duration;
+Epoll: [examples/epoll.rs](./examples/epoll.rs)
 
-let psi_fd = PsiFdBuilder::default()
-    .entry(presutaoru::PsiEntry::Cpu)
-    .stall_type(presutaoru::StallType::Some)
-    .stall_amount(Duration::from_micros(500))
-    .time_window(Duration::from_secs(1))
-    .build()
-    .unwrap();
-```
-
-## Addionally, to monitor PSI events, enable the `monitor` feature.
-
-```rust
-//! [dependencies]
-//! presutaoru = { version = "0.1", features = ["monitor"] }
-let mut monitor = PsiMonitor::new();
-monitor.add_fd(psi_fd);
-```
-
-### Running the monitor
-
-When using std::thread:
-
-```rust
-// same as above
-//! [dependencies]
-//! presutaoru = { version = "0.1", features = ["monitor", "thread"] }
-let mut thread = monitor.into_thread().unwrap();
-thread.start().unwrap();
-
-while let Ok(r) = thread.recv() {
-    match r {
-        Event::Ready(id) => println!("psi event triggerd on: {:?}", id),
-        Event::Failure(e) => eprintln!("{}", e.to_string()),
-    }
-}
-```
-
-Or register the file desc to tokio's reactor:
-
-```rust
-// same as above
-//! [dependencies]
-//! presutaoru = { version = "0.1", features = ["monitor", "tokio"] }
-use presutaoru::tokio::PsiTokioReactor;
-
-let mut job = monitor.into_tokio_reactor().unwrap();
-job.start().unwrap();
-
-while let Ok(r) = job.recv().await {
-    match r {
-        Event::Ready(id) => println!("psi event triggerd on: {:?}", id),
-        Event::Failure(e) => eprintln!("{}", e.to_string()),
-    }
-}
-```
-
-All file descriptors will be closed when the monitor or its thread / job are dropped.
-```rust
-// ...
-drop(monitor); // all fds are closed here
-// ...
-// in the thread example
-drop(thread); // all fds are closed here
-// ...
-// in the tokio example
-drop(jobs);   // all fds are closed here
-```
-
-## Features
-- `monitor`: Enable PSI event monitoring functionality.
-- `thread`: Enable monitoring using std::thread.
-- `tokio`: Enable monitoring using tokio's reactor.
-
-All features are disabled by default. 
-
-`thread` and `tokio` features require `monitor` feature to be enabled.
+Tokio: [examples/tokio.rs](./examples/tokio.rs)
 
 ## License
 This project is licensed under either of

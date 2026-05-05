@@ -14,7 +14,7 @@ use libc::O_NONBLOCK;
 
 use crate::PsiEntry;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum StallType {
     Some,
     Full,
@@ -35,19 +35,16 @@ impl Display for StallType {
 ///
 /// <https://docs.kernel.org/accounting/psi.html>
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct PsiFd {
     fd: OwnedFd,
-    pub(crate) from_builder: bool,
 }
 
 impl PsiFd {
     /// # Safety
     /// The provided `OwnedFd` must be a valid PSI file descriptor.
     pub unsafe fn new_unchecked(fd: OwnedFd) -> Self {
-        Self {
-            fd,
-            from_builder: false,
-        }
+        Self { fd }
     }
 }
 
@@ -69,8 +66,8 @@ impl From<PsiFd> for OwnedFd {
     }
 }
 
-/// Builder for PsiFd
-#[derive(Default, Clone, Copy)]
+/// Builder for [`PsiFd`]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct PsiFdBuilder<'a> {
     entry: Option<PsiEntry<'a>>,
     stall_type: Option<StallType>,
@@ -78,7 +75,7 @@ pub struct PsiFdBuilder<'a> {
     time_window: Option<Duration>,
 }
 
-/// Errors that can occur when building a PsiFd
+/// Errors that can occur when building a [`PsiFd`]
 #[derive(thiserror::Error, Debug)]
 pub enum PsiFdBuilderError {
     #[error("no entry specified")]
@@ -120,7 +117,7 @@ impl<'a> PsiFdBuilder<'a> {
         self
     }
 
-    /// Build the PsiFd, this will create and write the arguments to the underlying file descriptor
+    /// Build the [`PsiFd`], this will create and write the arguments to the underlying file descriptor
     pub fn build(self) -> Result<PsiFd, PsiFdBuilderError> {
         let entry = self.entry.ok_or(PsiFdBuilderError::NoEntry)?;
         let stall_type = self.stall_type.ok_or(PsiFdBuilderError::NoStallType)?;
@@ -153,8 +150,7 @@ impl<'a> PsiFdBuilder<'a> {
             .as_bytes(),
         )?;
         Ok(PsiFd {
-            fd: file.into(),
-            from_builder: true,
+            fd: OwnedFd::from(file),
         })
     }
 }

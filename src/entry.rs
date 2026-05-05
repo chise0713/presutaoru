@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum GlobalEntryType {
     Cpu,
     Io,
@@ -12,7 +12,7 @@ pub enum GlobalEntryType {
     Memory,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum CgroupEntryType {
     Cpu,
     Io,
@@ -20,7 +20,7 @@ pub enum CgroupEntryType {
 }
 
 /// PsiEntry types
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum PsiEntry<'a> {
     /// path to `/proc/pressure/[type]`
     Global(GlobalEntryType),
@@ -38,6 +38,7 @@ impl<'a> PsiEntry<'a> {
     const CG_IO: &'static str = "io.pressure";
     const CG_MEMORY: &'static str = "memory.pressure";
 
+    /// Returns the kernel PSI file path for this entry.
     pub fn path(&self) -> Cow<'_, Path> {
         match self {
             Self::Global(entry_type) => {
@@ -63,12 +64,6 @@ impl<'a> PsiEntry<'a> {
 }
 
 impl<'a> Display for PsiEntry<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.path().fmt(f)
-    }
-}
-
-impl<'a> Debug for PsiEntry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.path().fmt(f)
     }

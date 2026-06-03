@@ -1,12 +1,12 @@
 //! # presutaoru (ぷれすたおる)
 //!
-//! A linux Pressure Stall Information (PSI) file descriptor wrapper / monitor library for Rust.
+//! A linux Pressure Stall Information (PSI) file descriptor wrapper library for Rust.
 //!
 //! ```no_run
 //! # use std::{time::Duration, path::Path};
 //! # use presutaoru::*;
 //!
-//! let psi_fd = PsiFdBuilder::default()
+//! let psi_fd = PsiFd::builder()
 //!     .entry(PsiEntry::Global(GlobalEntryType::Cpu))
 //!     .stall_type(StallType::Some)
 //!     .stall_amount(Duration::from_micros(500))
@@ -15,7 +15,7 @@
 //!     .unwrap();
 //!
 //! // Example for cgroup-based PSI
-//! let cgroup_psi_fd = PsiFdBuilder::default()
+//! let cgroup_psi_fd = PsiFd::builder()
 //!     .entry(PsiEntry::Cgroup(
 //!         CgroupEntryType::Cpu,
 //!         Path::new("/sys/fs/cgroup/system.slice"),

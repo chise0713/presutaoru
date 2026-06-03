@@ -4,7 +4,7 @@ use nix::sys::epoll::{Epoll, EpollCreateFlags, EpollEvent, EpollFlags, EpollTime
 use presutaoru::*;
 
 fn main() {
-    let psi_fd = PsiFdBuilder::default()
+    let psi_fd = PsiFd::builder()
         .entry(PsiEntry::Global(GlobalEntryType::Cpu))
         .stall_amount(Duration::from_micros(1))
         .stall_type(StallType::Some)

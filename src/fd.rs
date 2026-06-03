@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     fs::OpenOptions,
-    io::{self, Write as _},
+    io::{self, Cursor, Write as _},
     os::{
         fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
         unix::fs::OpenOptionsExt as _,
@@ -10,9 +10,10 @@ use std::{
     time::Duration,
 };
 
-use libc::O_NONBLOCK;
-
 use crate::PsiEntry;
+
+// Linux UAPI: include/uapi/asm-generic/fcntl.h
+const O_NONBLOCK: i32 = 0o4000;
 
 #[derive(Debug, Clone, Copy)]
 pub enum StallType {
@@ -41,8 +42,14 @@ pub struct PsiFd {
 }
 
 impl PsiFd {
+    /// Returns a builder for constructing a [`PsiFd`].
+    pub fn builder() -> PsiFdBuilder<'static> {
+        PsiFdBuilder::new()
+    }
+
     /// # Safety
-    /// The provided `OwnedFd` must be a valid PSI file descriptor.
+    /// The provided file descriptor must refer to a PSI
+    /// file with a successfully registered trigger.
     pub unsafe fn new_unchecked(fd: OwnedFd) -> Self {
         Self { fd }
     }
@@ -86,9 +93,11 @@ pub enum PsiFdBuilderError {
     NoStallAmount,
     #[error("no time window specified")]
     NoTimeWindow,
-    #[error("time window must be greater than 500 milliseconds")]
+    #[error("time window must be greater than or equal to 500 milliseconds")]
     TimeWindowTooSmall,
-    #[error("stall amount must be less than time window")]
+    #[error("time window must be less than or equal to 10 seconds")]
+    TimeWindowTooLarge,
+    #[error("stall amount must be less than or equal to time window")]
     StallAmountTooLarge,
     #[error("no psi entry found {0}")]
     NoPsiEntry(PathBuf),
@@ -97,27 +106,45 @@ pub enum PsiFdBuilderError {
 }
 
 impl<'a> PsiFdBuilder<'a> {
+    /// Creates a new [`PsiFdBuilder`].
+    pub fn new() -> PsiFdBuilder<'static> {
+        PsiFdBuilder::default()
+    }
+
+    /// Sets the [`PsiEntry`] to monitor.
     pub fn entry(mut self, entry: PsiEntry<'a>) -> Self {
         self.entry = Some(entry);
         self
     }
 
+    /// Sets the [`StallType`].
     pub fn stall_type(mut self, stall_type: StallType) -> Self {
         self.stall_type = Some(stall_type);
         self
     }
 
+    /// Sets the accumulated stall duration threshold.
+    ///
+    /// The value must not exceed the configured
+    /// time window.
     pub fn stall_amount(mut self, amount: Duration) -> Self {
         self.stall_amount = Some(amount);
         self
     }
 
+    /// Sets the PSI observation window.
+    ///
+    /// The kernel requires the window to be in the range:
+    /// 500 milliseconds to 10 seconds (inclusive).
     pub fn time_window(mut self, window: Duration) -> Self {
         self.time_window = Some(window);
         self
     }
 
-    /// Build the [`PsiFd`], this will create and write the arguments to the underlying file descriptor
+    /// Build the [`PsiFd`].
+    ///
+    /// This opens the underlying [`PsiEntry`] and registers
+    /// the configured trigger with the kernel.
     pub fn build(self) -> Result<PsiFd, PsiFdBuilderError> {
         let entry = self.entry.ok_or(PsiFdBuilderError::NoEntry)?;
         let stall_type = self.stall_type.ok_or(PsiFdBuilderError::NoStallType)?;
@@ -126,31 +153,55 @@ impl<'a> PsiFdBuilder<'a> {
         if time_window < Duration::from_millis(500) {
             return Err(PsiFdBuilderError::TimeWindowTooSmall);
         }
-        if stall_amount >= time_window {
+        if time_window > Duration::from_secs(10) {
+            return Err(PsiFdBuilderError::TimeWindowTooLarge);
+        }
+        if stall_amount > time_window {
             return Err(PsiFdBuilderError::StallAmountTooLarge);
         }
 
         let path = entry.path();
-        if !path.exists() {
-            return Err(PsiFdBuilderError::NoPsiEntry(path.into_owned()));
-        }
 
-        let mut file = OpenOptions::new()
+        let mut file = match OpenOptions::new()
             .read(true)
             .write(true)
             .custom_flags(O_NONBLOCK)
-            .open(path)?;
-        file.write_all(
-            format!(
-                "{} {} {}\n",
+            .open(&path)
+        {
+            Ok(f) => f,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                return Err(PsiFdBuilderError::NoPsiEntry(path.into_owned()));
+            }
+            Err(e) => {
+                return Err(e)?;
+            }
+        };
+
+        // "<full|some> 10000000 10000000\n" = 23 bytes
+        const PSI_TRIGGER_BUF_SIZE: usize = 24;
+
+        let mut buf = [0u8; PSI_TRIGGER_BUF_SIZE];
+
+        let len = {
+            let mut cursor = Cursor::new(&mut buf[..]);
+
+            writeln!(
+                cursor,
+                "{} {} {}",
                 stall_type,
                 stall_amount.as_micros(),
-                time_window.as_micros()
-            )
-            .as_bytes(),
-        )?;
-        Ok(PsiFd {
-            fd: OwnedFd::from(file),
-        })
+                time_window.as_micros(),
+            )?;
+
+            cursor.position() as usize
+        };
+
+        file.write_all(&buf[..len])?;
+
+        let fd = OwnedFd::from(file);
+
+        // SAFETY:
+        // The trigger has been validated and registered
+        Ok(unsafe { PsiFd::new_unchecked(fd) })
     }
 }

@@ -23,10 +23,10 @@ pub enum StallType {
 
 impl Display for StallType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Some => write!(f, "some"),
-            Self::Full => write!(f, "full"),
-        }
+        f.write_str(match self {
+            Self::Some => "some",
+            Self::Full => "full",
+        })
     }
 }
 
@@ -97,8 +97,10 @@ pub enum PsiFdBuilderError {
     TimeWindowTooSmall,
     #[error("time window must be less than or equal to 10 seconds")]
     TimeWindowTooLarge,
-    #[error("stall amount must be less than or equal to time window")]
-    StallAmountTooLarge,
+    #[error("stall amount is zero")]
+    StallAmountZero,
+    #[error("stall amount exceeds time window")]
+    StallAmountExceedsTimeWindow,
     #[error("no psi entry found {0}")]
     NoPsiEntry(PathBuf),
     #[error("io error: {0}")]
@@ -156,8 +158,11 @@ impl<'a> PsiFdBuilder<'a> {
         if time_window > Duration::from_secs(10) {
             return Err(PsiFdBuilderError::TimeWindowTooLarge);
         }
+        if stall_amount.is_zero() {
+            return Err(PsiFdBuilderError::StallAmountZero);
+        }
         if stall_amount > time_window {
-            return Err(PsiFdBuilderError::StallAmountTooLarge);
+            return Err(PsiFdBuilderError::StallAmountExceedsTimeWindow);
         }
 
         let path = entry.path();

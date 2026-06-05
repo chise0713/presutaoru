@@ -5,7 +5,6 @@
 //! ```no_run
 //! # use std::{time::Duration, path::Path};
 //! # use presutaoru::*;
-//!
 //! let psi_fd = PsiFd::builder()
 //!     .entry(PsiEntry::Global(GlobalEntryType::Cpu))
 //!     .stall_type(StallType::Some)

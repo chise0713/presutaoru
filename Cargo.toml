@@ -1,6 +1,6 @@
 [package]
 name = "presutaoru"
-version = "0.1.0-alpha.5"
+version = "0.1.0-alpha.6"
 edition = "2021"
 rust-version = "1.71.1"
 authors = ["チセ <123655015+chise0713@users.noreply.github.com>"]

@@ -65,6 +65,6 @@ impl<'a> PsiEntry<'a> {
 
 impl<'a> Display for PsiEntry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.path().fmt(f)
+        Display::fmt(&self.path().display(), f)
     }
 }

@@ -32,4 +32,4 @@ thiserror = "^2.0"
 
 [dev-dependencies]
 nix = { version = "^0.31", features = ["event"] }
-tokio = { version = "^1.0", features = ["rt", "net", "sync", "macros"] }
+tokio = { version = "^1.0", features = ["rt", "net", "sync", "macros", "time"] }

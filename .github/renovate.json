@@ -1,0 +1,24 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended",
+        ":disableRateLimiting"
+    ],
+    "baseBranchPatterns": [
+        "master"
+    ],
+    "labels": [
+        "dependencies"
+    ],
+    "packageRules": [
+        {
+            "matchManagers": [
+                "github-actions"
+            ],
+            "groupName": "github-actions",
+            "extends": [
+                "helpers:pinGitHubActionDigests"
+            ]
+        }
+    ]
+}

@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display},
-    path::Path,
-};
+use std::{borrow::Cow, fmt::Display, path::Path};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GlobalEntryType {
@@ -65,7 +61,7 @@ impl<'a> PsiEntry<'a> {
 
 impl<'a> Display for PsiEntry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.path().display(), f)
+        self.path().display().fmt(f)
     }
 }
 

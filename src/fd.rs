@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     fs::OpenOptions,
-    io::{self, Cursor, Write as _},
+    io::{self, Cursor, Write},
     os::{
         fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
         unix::fs::OpenOptionsExt as _,
@@ -182,31 +182,181 @@ impl<'a> PsiFdBuilder<'a> {
             }
         };
 
-        // "<full|some> 10000000 10000000\n" = 23 bytes
-        const PSI_TRIGGER_BUF_SIZE: usize = 24;
-
-        let mut buf = [0u8; PSI_TRIGGER_BUF_SIZE];
-
-        let len = {
-            let mut cursor = Cursor::new(&mut buf[..]);
-
-            writeln!(
-                cursor,
-                "{} {} {}",
-                stall_type,
-                stall_amount.as_micros(),
-                time_window.as_micros(),
-            )?;
-
-            cursor.position() as usize
-        };
-
-        file.write_all(&buf[..len])?;
+        write_trigger(&mut file, stall_type, stall_amount, time_window)?;
 
         let fd = OwnedFd::from(file);
 
         // SAFETY:
         // The trigger has been validated and registered
         Ok(unsafe { PsiFd::new_unchecked(fd) })
+    }
+}
+
+#[inline(always)]
+fn write_trigger<W: Write>(
+    mut writer: W,
+    stall_type: StallType,
+    stall_amount: Duration,
+    time_window: Duration,
+) -> io::Result<()> {
+    // "<full|some> 10000000 10000000\n" = 23 bytes
+    const PSI_TRIGGER_BUF_SIZE: usize = 24;
+
+    let mut buf = [0u8; PSI_TRIGGER_BUF_SIZE];
+
+    let len = {
+        let mut cursor = Cursor::new(&mut buf[..]);
+
+        writeln!(
+            cursor,
+            "{} {} {}",
+            stall_type,
+            stall_amount.as_micros(),
+            time_window.as_micros(),
+        )?;
+
+        cursor.position() as usize
+    };
+
+    writer.write_all(&buf[..len])
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{assert_matches, path::Path, time::Duration};
+
+    use super::*;
+    use crate::{CgroupEntryType, GlobalEntryType, PsiEntry};
+
+    const ONE_SEC: Duration = Duration::from_secs(1);
+    const ONE_MICRO_SEC: Duration = Duration::from_micros(1);
+    const ONE_NANO_SEC: Duration = Duration::from_nanos(1);
+
+    #[test]
+    fn stall_type_display() {
+        assert_eq!(StallType::Some.to_string(), "some");
+        assert_eq!(StallType::Full.to_string(), "full");
+    }
+
+    #[test]
+    fn build_requires_entry() {
+        assert_matches!(
+            PsiFd::builder()
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_MICRO_SEC)
+                .time_window(ONE_SEC)
+                .build(),
+            Err(PsiFdBuilderError::NoEntry),
+        );
+    }
+
+    #[test]
+    fn build_requires_stall_type() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_amount(ONE_MICRO_SEC)
+                .time_window(ONE_SEC)
+                .build(),
+            Err(PsiFdBuilderError::NoStallType),
+        );
+    }
+
+    #[test]
+    fn build_requires_stall_amount() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_type(StallType::Some)
+                .time_window(ONE_SEC)
+                .build(),
+            Err(PsiFdBuilderError::NoStallAmount),
+        );
+    }
+
+    #[test]
+    fn build_requires_time_window() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_MICRO_SEC)
+                .build(),
+            Err(PsiFdBuilderError::NoTimeWindow),
+        );
+    }
+
+    #[test]
+    fn build_rejects_time_window_below_500ms() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_MICRO_SEC)
+                .time_window(Duration::from_millis(500) - ONE_NANO_SEC)
+                .build(),
+            Err(PsiFdBuilderError::TimeWindowTooSmall),
+        );
+    }
+
+    #[test]
+    fn build_rejects_time_window_above_10s() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_MICRO_SEC)
+                .time_window(Duration::from_secs(10) + ONE_NANO_SEC)
+                .build(),
+            Err(PsiFdBuilderError::TimeWindowTooLarge),
+        );
+    }
+
+    #[test]
+    fn build_rejects_stall_amount_below_1us() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_MICRO_SEC - ONE_NANO_SEC)
+                .time_window(ONE_SEC)
+                .build(),
+            Err(PsiFdBuilderError::StallAmountTooSmall),
+        );
+    }
+
+    #[test]
+    fn build_rejects_stall_amount_exceeding_time_window() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Global(GlobalEntryType::Memory))
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_SEC + ONE_NANO_SEC)
+                .time_window(ONE_SEC)
+                .build(),
+            Err(PsiFdBuilderError::StallAmountExceedsTimeWindow),
+        );
+    }
+
+    #[test]
+    fn build_reports_missing_psi_entry() {
+        assert_matches!(
+            PsiFd::builder()
+                .entry(PsiEntry::Cgroup(CgroupEntryType::Memory, Path::new("/")))
+                .stall_type(StallType::Some)
+                .stall_amount(ONE_MICRO_SEC)
+                .time_window(ONE_SEC)
+                .build(),
+            Err(PsiFdBuilderError::NoPsiEntry(_))
+        );
+    }
+
+    #[test]
+    fn write_trigger() {
+        let mut buf = [0u8; _];
+
+        super::write_trigger(buf.as_mut(), StallType::Some, ONE_MICRO_SEC, ONE_SEC).unwrap();
+
+        assert_eq!(&buf, b"some 1 1000000\n");
     }
 }

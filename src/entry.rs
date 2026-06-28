@@ -68,3 +68,56 @@ impl<'a> Display for PsiEntry<'a> {
         Display::fmt(&self.path().display(), f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn global_path() {
+        let cases = [
+            (GlobalEntryType::Cpu, "/proc/pressure/cpu"),
+            (GlobalEntryType::Io, "/proc/pressure/io"),
+            (GlobalEntryType::Irq, "/proc/pressure/irq"),
+            (GlobalEntryType::Memory, "/proc/pressure/memory"),
+        ];
+
+        for (kind, expected) in cases {
+            assert_eq!(PsiEntry::Global(kind).path(), Path::new(expected));
+        }
+    }
+
+    #[test]
+    fn cgroup_path() {
+        let base = Path::new("/sys/fs/cgroup/test");
+
+        let cases = [
+            (CgroupEntryType::Cpu, "cpu.pressure"),
+            (CgroupEntryType::Io, "io.pressure"),
+            (CgroupEntryType::Memory, "memory.pressure"),
+        ];
+
+        for (kind, file) in cases {
+            assert_eq!(PsiEntry::Cgroup(kind, base).path(), base.join(file));
+        }
+    }
+
+    #[test]
+    fn display_matches_path() {
+        let cgroup_path = Path::new("/tmp");
+
+        let entries = [
+            PsiEntry::Global(GlobalEntryType::Cpu),
+            PsiEntry::Global(GlobalEntryType::Io),
+            PsiEntry::Global(GlobalEntryType::Irq),
+            PsiEntry::Global(GlobalEntryType::Memory),
+            PsiEntry::Cgroup(CgroupEntryType::Cpu, cgroup_path),
+            PsiEntry::Cgroup(CgroupEntryType::Io, cgroup_path),
+            PsiEntry::Cgroup(CgroupEntryType::Memory, cgroup_path),
+        ];
+
+        for entry in entries {
+            assert_eq!(entry.to_string(), entry.path().display().to_string());
+        }
+    }
+}

@@ -31,5 +31,5 @@ name = "tokio"
 thiserror = "^2.0"
 
 [dev-dependencies]
-nix = { version = "^0.31", features = ["event"] }
+nix = { version = "^0.32.0", features = ["event"] }
 tokio = { version = "^1.0", features = ["rt", "net", "sync", "macros", "time"] }
